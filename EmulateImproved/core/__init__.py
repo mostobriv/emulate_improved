@@ -1,5 +1,1 @@
-
-try:
-	from .ida import *
-except ImportError:
-	pass
+from . import const
