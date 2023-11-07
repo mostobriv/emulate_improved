@@ -5,6 +5,7 @@ from .callbacks import hx_callback_manager, HexRaysEventHook
 class ActionManager(object):
 	def __init__(self):
 		self.__actions = []
+		self.popup_hooks = []
 
 	def register(self, action) -> None:
 		self.__actions.append(action)
@@ -13,6 +14,12 @@ class ActionManager(object):
 			)
 		print("[*] Registered %s action with status %d" % (action.name, status))
 
+		if isinstance(action, AsmPopupAction):
+			popup_hook = AsmPopupRequestHook(action)
+			popup_hook.hook()
+
+			self.popup_hooks.append(popup_hook)
+
 		if isinstance(action, HexRaysPopupAction):
 			hx_callback_manager.register(HexRaysPopupRequestHook(action))
 
@@ -20,6 +27,9 @@ class ActionManager(object):
 		pass
 
 	def finalize(self):
+		for hook in self.popup_hooks:
+			hook.unhook()
+
 		for action in self.__actions:
 			idaapi.unregister_action(action.name)
 
@@ -38,13 +48,44 @@ class Action(idaapi.action_handler_t):
 
 	@property
 	def name(self) -> str:
-		return "ChangeMyName:" + type(self).__name__
+		return "EmulateImproved:" + type(self).__name__
 
-	def activate(self, ctx: idaapi.action_activation_ctx_t) -> None:
+	def activate(self, ctx: idaapi.action_ctx_base_t) -> None:
 		raise NotImplementedError
 
-	def update(self, ctx: idaapi.action_activation_ctx_t) -> None:
+	def update(self, ctx: idaapi.action_ctx_base_t) -> None:
 		raise NotImplementedError
+
+
+class AsmPopupAction(Action):
+	"""
+	Wrapper around Action. Represents Action which can be added to menu after right-clicking in any window.
+	Has `check` method that should tell whether Action should be added to popup menu when different items
+	are right-clicked.
+	"""
+	
+	def __init__(self):
+		super(AsmPopupAction, self).__init__()
+
+	def activate(self, ctx: idaapi.action_ctx_base_t) -> None:
+		raise NotImplementedError
+
+	def check(self, widget) -> bool:
+		raise NotImplementedError
+
+	def update(self, ctx: idaapi.action_ctx_base_t) -> int:
+		if ctx.widget_type == idaapi.BWN_DISASM:
+			return idaapi.AST_ENABLE_FOR_WIDGET
+		return idaapi.AST_DISABLE_FOR_WIDGET
+
+class AsmPopupRequestHook(idaapi.UI_Hooks):
+	def __init__(self, action):
+		super(AsmPopupRequestHook, self).__init__()
+		self.__action = action
+
+	def finish_populating_widget_popup(self, widget, popup):
+		if self.__action.check(widget):
+			print("Attached action %s to popup with result: %#x" % (self.__action.name, idaapi.attach_action_to_popup(widget, popup, self.__action.name, None)))
 
 
 class HexRaysPopupAction(Action):
@@ -59,13 +100,13 @@ class HexRaysPopupAction(Action):
 	def __init__(self):
 		super(HexRaysPopupAction, self).__init__()
 
-	def activate(self, ctx: idaapi.action_activation_ctx_t) -> None:
+	def activate(self, ctx: idaapi.action_ctx_base_t) -> None:
 		raise NotImplementedError
 
 	def check(self, hx_view: idaapi.vdui_t) -> bool:
 		raise NotImplementedError
 
-	def update(self, ctx: idaapi.action_activation_ctx_t) -> int:
+	def update(self, ctx: idaapi.action_ctx_base_t) -> int:
 		if ctx.widget_type == idaapi.BWN_PSEUDOCODE:
 			return idaapi.AST_ENABLE_FOR_WIDGET
 		return idaapi.AST_DISABLE_FOR_WIDGET

@@ -1,7 +1,17 @@
 import unicorn
 from unicorn import unicorn_const
-from . import decompilerapi
 
+from EmulateImproved.core import decompilerapi
+from EmulateImproved.core import logger
+
+HOOKS_LOGGER = logger.Logger("Hooks")
+
+# syscall hook
+# concrete address hook
+# code-symbol hook
+# data-symbol hook
+# skip address hook
+# trace-point hook
 
 class BaseHook:
     def __init__(self, htype: int = 0, begin: int = 0, end: int = -1):
@@ -32,12 +42,6 @@ class CodeSymbolHook(BaseHook):
         
 
 
-def hotload_memory(uc: unicorn.Uc, ftype: int, address: int, ):
-    pass
-
-class HookManager:
-    def __init__(self, uc: unicorn.Uc):
-        uc.hook_add()
-
-    def handle_hooks(self):
-        pass
+def ios_aarch64_hooks() -> list:
+    hooks = list()
+    return hooks

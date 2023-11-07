@@ -1,10 +1,12 @@
 import idaapi
 
 from . import actions
-from EmulateImproved import core
+from EmulateImproved.core import emu
 
 
-class EmulateRange(actions.Action):
+class EmulateRange(actions.AsmPopupAction):
+	description = "Emulate range"
+
 	def __init__(self):
 		super().__init__()
 
@@ -12,20 +14,20 @@ class EmulateRange(actions.Action):
 		vdui = idaapi.get_widget_vdui(ctx.widget)
 		widget_type = ctx.widget_type
 
-		range_start, range_end = None, None
-		if widget_type == idaapi.BWN_DISASM:
-			range_start, range_end = get_range_for_assembly_view(vdui)
-		else:
-			raise NotImplementedError
+		is_range_selected, range_start, range_end = get_range_for_assembly_view(ctx.widget)
+		if not is_range_selected:
+			print("Currently single instruction emulation not supported")
+			return
 		
 
-	def update(self, ctx):
-		if ctx.widget_type in [idaapi.BWN_PSEUDOCODE, idaapi.BWN_DISASM]:
-			return idaapi.AST_ENABLE_FOR_WIDGET
-		return idaapi.AST_DISABLE_FOR_WIDGET
+		emu.emulate_range(range_start, range_end)
+
+	def check(self, widget) -> bool:
+		widget_type = idaapi.get_widget_type(widget)
+		return widget_type == idaapi.BWN_DISASM
 
 
-def get_range_for_assembly_view(vdui):
-	return core.ui.get_selected_range(vdui)
-
+def get_range_for_assembly_view(widget):
+	return idaapi.read_range_selection(widget)
+	
 actions.action_manager.register(EmulateRange())
