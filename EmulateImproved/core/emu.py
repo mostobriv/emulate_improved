@@ -4,6 +4,7 @@ import unicorn
 from unicorn import arm64_const, arm_const, x86_const
 
 from collections import defaultdict
+from collections.abc import Callable
 
 from EmulateImproved.core import decompilerapi
 from EmulateImproved.core import memory
@@ -55,7 +56,13 @@ def emulate_function(function_addr: int, concrete_arguments: List[Any]=None) -> 
 	emu.__uc.mem_write(raw2virtual(lowest_addr_aligned), function_data)
 	
 
-def emulate_range(start: int, end: int, timeout: int=0, count: int=0, should_init_frame: bool=True) -> None:
+def emulate_range(
+		start: int, end: int,
+		timeout: int=0, count: int=0,
+		should_init_frame: bool=True,
+		pre_emulation_routine: Optional[Callable] = None,
+		post_emulation_routine: Optional[Callable] = None,
+		) -> None:
 	"""
 	Emulate chosen range of memory. Range end boundary is excluded - [start:end).
 
@@ -69,6 +76,11 @@ def emulate_range(start: int, end: int, timeout: int=0, count: int=0, should_ini
 		Total number of instructions to emulate (default is None)
 	should_init_frame: bool, optional
 		Should engine initialize stack frame for chosen range or not. (default True)
+	pre_emulation_routine: function, optional
+		Function that is called before the emulation starts.
+	post_emulation_routine: function, optional
+		Function that is called after the emulation ends.
+	
 	"""
 	
 	engine = native_emulation_engine()
@@ -76,10 +88,17 @@ def emulate_range(start: int, end: int, timeout: int=0, count: int=0, should_ini
 	if should_init_frame:
 		engine.setup_stackframe(start)
 
+	engine.set_pre_emulation_routine(pre_emulation_routine)
+	engine.set_post_emulation_routine(post_emulation_routine)
 	engine.emulate_range(start, end, timeout, count)
 
 	return engine
 
+
+def emulate_until_return(
+		address: int,
+		timeout: int=0, count: int=0):
+	pass
 
 endianess2uc = {
 	"little": unicorn.unicorn_const.UC_MODE_LITTLE_ENDIAN,
@@ -118,12 +137,14 @@ class BaseEmulationEngine:
 		self.regs = memory.Registers(self._regs)
 		self.strict = strict
 		self.user_data = {"self": self}
+		self.__pre_emulation_routine = None
+		self.__post_emulation_routine = None
 
 	def add_hook(self, hook_type, hook_handler):
 		raise NotImplementedError
 	
 	def emulate_range(self, start: int, end: int, timeout:int=0, count: int=0):
-		self.pre_emulation()
+		self.run_pre_emulation_routine()
 
 		self._logger.info("Emulating range raw(%#x - %#x), virtual(%#x - %#x)" % (
 				start,
@@ -138,13 +159,21 @@ class BaseEmulationEngine:
 
 		self.uc.emu_start(start, end, timeout, count)
 
-		self.post_emulation()
+		self.run_post_emulation_routine()
 
-	def pre_emulation(self):
-		pass
+	def run_pre_emulation_routine(self) -> None:
+		if self.__pre_emulation_routine is not None:
+			self.__pre_emulation_routine(self)
 
-	def post_emulation(self):
-		pass
+	def run_post_emulation_routine(self) -> None:
+		if self.__post_emulation_routine is not None:
+			self.__post_emulation_routine(self)
+	
+	def set_pre_emulation_routine(self, routine: Optional[Callable]) -> None:
+		self.__pre_emulation_routine = routine
+
+	def set_post_emulation_routine(self, routine: Optional[Callable]) -> None:
+		self.__post_emulation_routine = routine
 
 	def setup_stackframe(self, address: int=None, frame_size=const.FRAME_SIZE):
 		raise NotImplementedError
@@ -308,12 +337,7 @@ class Aarch64EmulationEngine(BaseEmulationEngine):
 		self.uc.reg_write(self.regs.fp, sp_value - 8)
 		self.uc.reg_write(self.regs.fp, sp_value - frame_size)
 
-	def pre_emulation(self):
-		self.uc.reg_write(self.regs.x22, self.uc.reg_read(self.regs.fp) - 0xC0)
-
-def code_hook(uc, address, size, user_data):
-	print("[*] Code hook: %#x" % address)
-	if address == 0x100012e88:
-		a = uc.reg_read(user_data["self"].regs.w11)
-		b = uc.reg_read(user_data["self"].regs.w10)
-		print("%#x ^ %#x" % (a, b))
+def code_hook(uc, address, size, user_data) -> bool:
+	print("[*] Code hook: %#x -> %#x" % (address, user_data["self"].mem.read_dword(address)))
+	if user_data["self"].mem.read_dword(address) == 0xd65f03c0:
+		uc.emu_stop()
