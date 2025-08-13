@@ -1,5 +1,5 @@
 import binaryninja
-from binaryninja import HighLevelILOperation, VariableSourceType
+from binaryninja import HighLevelILOperation, MediumLevelILOperation
 from binaryninjaui import LinearView  # type: ignore
 
 from .bnplugintools import PyToolsUIAction, get_action_manager
@@ -28,6 +28,19 @@ def handle_hlil_call(
 
 	else:
 		raise ValueError(f"Invalid HLIL instruction provided: {instr!r}")
+
+
+def handle_mlil_call(
+	instr: binaryninja.MediumLevelILInstruction, bv: binaryninja.BinaryView
+) -> EmulationEngine:
+	if instr.operation == MediumLevelILOperation.HLIL_CALL:
+		return run_emulate_hlil_call(instr, bv)
+
+	elif instr.operation == MediumLevelILOperation.HLIL_CONST_PTR:
+		raise NotImplementedError("I don't know how to get parent or crawling upward AST in MLIL")
+
+	else:
+		raise ValueError(f"Invalid MLIL instruction provided: {instr!r}")
 
 
 class EmulateFunctionCall(PyToolsUIAction):
