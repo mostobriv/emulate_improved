@@ -1,0 +1,3 @@
+[submodule "EmulateImproved/callbacks/bnplugintools"]
+	path = EmulateImproved/callbacks/bnplugintools
+	url = https://github.com/mostobriv/bnplugintools

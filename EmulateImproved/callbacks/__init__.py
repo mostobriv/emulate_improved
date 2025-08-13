@@ -1,12 +1,8 @@
-# try:
-from .ida import *
-print("[*] Loaded callbacks for IDA")
-# except Exceptio:
-	# pass
+from .bnplugintools import init_plugin_tools
 
-# try:
-# 	from .binaryninja import *
-# 	print("[*] Loaded callbacks for BN")
-# except:
-# 	pass
+init_plugin_tools("EmulateImproved")
 
+
+from . import emulate_range
+from . import emulate_function_call
+from . import emulate_until_return

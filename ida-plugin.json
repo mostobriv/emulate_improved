@@ -1,7 +1,0 @@
-{
-	"plugin" :
-	{
-		"name" : "EmulateImproved",
-		"entryPoint" : "EmulateImproved.py"
-	}
-}
