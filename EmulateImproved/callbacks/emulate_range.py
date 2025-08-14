@@ -21,6 +21,7 @@ class EmulateRange(PyToolsPluginCommand):
 		differ = MemoryDiffer(engine.mem, engine.fv)
 		with bv.undoable_transaction():
 			differ.apply_changes()
+			bv.update_analysis()
 
 	def is_valid(cls, bv, address, length):
 		return bv.is_offset_readable(address) and bv.is_offset_readable(address + length)

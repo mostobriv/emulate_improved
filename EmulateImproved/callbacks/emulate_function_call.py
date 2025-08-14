@@ -83,8 +83,15 @@ class EmulateFunctionCall(PyToolsUIAction):
 
 		handler(instruction, context.binaryView)
 
+	@PyToolsUIAction.add_to_context_menu
 	def is_valid(self, context):
-		return True
+		if context is None:
+			return False
+
+		if context.binaryView is None:
+			return False
+
+		return context.binaryView.is_offset_readable(context.address)
 
 
 get_action_manager().register(EmulateFunctionCall())

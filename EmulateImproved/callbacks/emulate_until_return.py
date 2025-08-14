@@ -21,6 +21,7 @@ class EmulateUntilReturn(PyToolsPluginCommand):
 		differ = MemoryDiffer(engine.mem, engine.fv)
 		with bv.undoable_transaction():
 			differ.apply_changes()
+			bv.update_analysis()
 
 	def is_valid(cls, bv, addr):
 		return bv.is_offset_readable(addr)
